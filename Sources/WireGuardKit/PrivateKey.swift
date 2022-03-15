@@ -2,6 +2,7 @@
 // Copyright © 2018-2021 WireGuard LLC. All Rights Reserved.
 
 import Foundation
+import CryptoKit
 
 #if SWIFT_PACKAGE
 import WireGuardKitC
@@ -9,30 +10,38 @@ import WireGuardKitC
 
 /// The class describing a private key used by WireGuard.
 public class PrivateKey: BaseKey {
-    /// Derived public key
-    public var publicKey: PublicKey {
-        return rawValue.withUnsafeBytes { (privateKeyBufferPointer: UnsafeRawBufferPointer) -> PublicKey in
-            var publicKeyData = Data(repeating: 0, count: Int(WG_KEY_LEN))
-            let privateKeyBytes = privateKeyBufferPointer.baseAddress!.assumingMemoryBound(to: UInt8.self)
+	/// Derived public key
+	public var publicKey: PublicKey {
+		return rawValue.withUnsafeBytes { (privateKeyBufferPointer: UnsafeRawBufferPointer) -> PublicKey in
+//            var publicKeyData = Data(repeating: 0, count: Int(WG_KEY_LEN))
+//            let privateKeyBytes = privateKeyBufferPointer.baseAddress!.assumingMemoryBound(to: UInt8.self)
 
-            publicKeyData.withUnsafeMutableBytes { (publicKeyBufferPointer: UnsafeMutableRawBufferPointer) in
-                let publicKeyBytes = publicKeyBufferPointer.baseAddress!.assumingMemoryBound(to: UInt8.self)
-                curve25519_derive_public_key(publicKeyBytes, privateKeyBytes)
-            }
+//            publicKeyData.withUnsafeMutableBytes { (publicKeyBufferPointer: UnsafeMutableRawBufferPointer) in
+//                let publicKeyBytes = publicKeyBufferPointer.baseAddress!.assumingMemoryBound(to: UInt8.self)
+//                curve25519_derive_public_key(publicKeyBytes, privateKeyBytes)
+//            }
+			
+			do {
+				let privateKey = try CryptoKit.Curve25519.KeyAgreement.PrivateKey.init(rawRepresentation: self.rawValue)
+				return PublicKey(rawValue: privateKey.publicKey.rawRepresentation)!
+				
+			} catch {
+				return PublicKey(rawValue: Data(base64Encoded: "")!)!
+			}
+		}
+	}
 
-            return PublicKey(rawValue: publicKeyData)!
-        }
-    }
-
-    /// Initialize new private key
-    convenience public init() {
-        var privateKeyData = Data(repeating: 0, count: Int(WG_KEY_LEN))
-        privateKeyData.withUnsafeMutableBytes { (rawBufferPointer: UnsafeMutableRawBufferPointer) in
-            let privateKeyBytes = rawBufferPointer.baseAddress!.assumingMemoryBound(to: UInt8.self)
-            curve25519_generate_private_key(privateKeyBytes)
-        }
-        self.init(rawValue: privateKeyData)!
-    }
+	/// Initialize new private key
+	convenience public init() {
+//        var privateKeyData = Data(repeating: 0, count: Int(WG_KEY_LEN))
+//        privateKeyData.withUnsafeMutableBytes { (rawBufferPointer: UnsafeMutableRawBufferPointer) in
+//            let privateKeyBytes = rawBufferPointer.baseAddress!.assumingMemoryBound(to: UInt8.self)
+//            curve25519_generate_private_key(privateKeyBytes)
+//        }
+		
+		let privateKey = CryptoKit.Curve25519.KeyAgreement.PrivateKey.init()
+		self.init(rawValue: privateKey.rawRepresentation)!
+	}
 }
 
 /// The class describing a public key used by WireGuard.
@@ -102,13 +111,14 @@ public class BaseKey: RawRepresentable, Equatable, Hashable {
     }
 
     public static func == (lhs: BaseKey, rhs: BaseKey) -> Bool {
-        return lhs.rawValue.withUnsafeBytes { (lhsBytes: UnsafeRawBufferPointer) -> Bool in
-            return rhs.rawValue.withUnsafeBytes { (rhsBytes: UnsafeRawBufferPointer) -> Bool in
-                return key_eq(
-                    lhsBytes.baseAddress!.assumingMemoryBound(to: UInt8.self),
-                    rhsBytes.baseAddress!.assumingMemoryBound(to: UInt8.self)
-                )
-            }
-        }
+		return lhs.hexKey == rhs.hexKey
+//        return lhs.rawValue.withUnsafeBytes { (lhsBytes: UnsafeRawBufferPointer) -> Bool in
+//            return rhs.rawValue.withUnsafeBytes { (rhsBytes: UnsafeRawBufferPointer) -> Bool in
+//                return key_eq(
+//                    lhsBytes.baseAddress!.assumingMemoryBound(to: UInt8.self),
+//                    rhsBytes.baseAddress!.assumingMemoryBound(to: UInt8.self)
+//                )
+//            }
+//        }
     }
 }
